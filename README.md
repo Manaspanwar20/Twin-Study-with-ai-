@@ -27,6 +27,10 @@ Convert YouTube videos into structured notes
 
 ⚡ Frontend structure setup
 
+💬 Real-time chat UI
+
+⚡ WebSocket-based chat logic
+
 ## 🔄 In Progress
 
 Backend integration (authorization and middlewares)
@@ -34,8 +38,6 @@ Backend integration (authorization and middlewares)
 Database setup
 
 ## 🔜 Planned Features
-
-📄 Upload notes (PDF/Text)
 
 🧠 AI-powered summarization
 
