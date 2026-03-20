@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
+import ChatsList from './components/ChatsList';
+import ChatView from './components/ChatView';
+import AuthModal from './components/AuthModal';
+import socket from './socket';
 import './App.css';
 
 const Navbar = () => {
@@ -20,8 +24,19 @@ const Navbar = () => {
 
   useEffect(() => {
     loadUser();
-    window.addEventListener("authChange", loadUser);
-    return () => window.removeEventListener("authChange", loadUser);
+    
+    const handleAuthChange = () => {
+      loadUser();
+      // Inform the socket of the new token and re-connect
+      socket.auth = { token: localStorage.getItem('token') };
+      socket.disconnect();
+      if (localStorage.getItem('token')) {
+        socket.connect();
+      }
+    };
+
+    window.addEventListener("authChange", handleAuthChange);
+    return () => window.removeEventListener("authChange", handleAuthChange);
   }, []);
 
   const handleLogout = () => {
@@ -72,22 +87,83 @@ const Navbar = () => {
   );
 };
 
-const Home = () => (
-  <section className="hero">
-    <h1 className="hero-title fade-in">Elevate Your Learning.</h1>
-    <div className="action-box fade-in" style={{ animationDelay: '0.2s' }}>
-      <div className="study-input-container">
-        <input 
-          type="text" 
-          className="study-input" 
-          placeholder="Study with ai"
-          autoFocus
-        />
-        <button className="plus-button">+</button>
+const Home = () => {
+  const fileInputRef = React.useRef(null);
+  const [inputValue, setInputValue] = useState('');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleUploadClick = () => {
+    if (!localStorage.getItem('token')) {
+      setAuthModalMessage("Please login or register first to upload files.");
+      setAuthModalOpen(true);
+      return;
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      console.log('Files selected:', files);
+      alert(`Selected ${files.length} file(s): ` + Array.from(files).map(f => f.name).join(', '));
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!localStorage.getItem('token')) {
+      setAuthModalMessage("Please login or register first to chat with AI.");
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!inputValue.trim()) return;
+    socket.emit("create_chat", { initialMessage: inputValue }, (response) => {
+      if (response && response.success) {
+        navigate(`/chat/${response.chatId}`);
+      }
+    });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    }
+  };
+
+  return (
+    <section className="hero">
+      <h1 className="hero-title fade-in">Elevate Your Learning.</h1>
+      <div className="action-box fade-in" style={{ animationDelay: '0.2s' }}>
+        <div className="study-input-container">
+          <input 
+            type="text" 
+            className="study-input" 
+            placeholder="Study with ai"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
+          />
+          <button className="submit-arrow-button" onClick={handleSubmit} title="Send Message">
+            ➔
+          </button>
+          <button className="plus-button" onClick={handleUploadClick} title="Upload files">+</button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            style={{ display: 'none' }} 
+            multiple
+          />
+        </div>
       </div>
-    </div>
-  </section>
-);
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} message={authModalMessage} />
+    </section>
+  );
+};
 
 const Placeholder = ({ title }) => (
   <div className="page-content">
@@ -106,7 +182,8 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/chats" element={<Placeholder title="Chats" />} />
+          <Route path="/chats" element={<ChatsList />} />
+          <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/profile" element={<Placeholder title="Profile" />} />
