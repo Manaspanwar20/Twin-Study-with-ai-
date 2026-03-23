@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import socket from '../socket';
 import AuthModal from './AuthModal';
+import ReactMarkdown from 'react-markdown';
 
 const ChatView = () => {
   const { id } = useParams();
@@ -13,7 +14,14 @@ const ChatView = () => {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const [pendingFiles, setPendingFiles] = useState([]);
+
   useEffect(() => {
+    const handleConnect = () => {
+      console.log('Socket reconnected, joining chat:', id);
+      socket.emit("join_chat", id);
+    };
+
     // Fetch initial chat data
     socket.emit("get_chat", id, (response) => {
       if (response) {
@@ -21,8 +29,11 @@ const ChatView = () => {
       }
     });
 
-    // Join room
+    // Join room initially
     socket.emit("join_chat", id);
+
+    // Re-join on reconnect
+    socket.on('connect', handleConnect);
 
     // Listen for new messages
     const handleMessage = (msg) => {
@@ -34,12 +45,26 @@ const ChatView = () => {
       });
     };
 
+    const handleMessageUpdate = (updatedMsg) => {
+      setChat(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev, 
+          messages: prev.messages.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m)
+        };
+      });
+    };
+
     socket.on("receive_message", handleMessage);
+    socket.on("receive_message_update", handleMessageUpdate);
 
     return () => {
+      socket.off('connect', handleConnect);
       socket.off("receive_message", handleMessage);
+      socket.off("receive_message_update", handleMessageUpdate);
     };
   }, [id]);
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,9 +76,14 @@ const ChatView = () => {
       setAuthModalOpen(true);
       return;
     }
-    if (!inputValue.trim()) return;
-    socket.emit("send_message", { chatId: id, message: inputValue });
+    if (!inputValue.trim() && pendingFiles.length === 0) return;
+    socket.emit("send_message", { 
+      chatId: id, 
+      message: inputValue,
+      files: pendingFiles 
+    });
     setInputValue('');
+    setPendingFiles([]);
   };
 
   const handleKeyDown = (e) => {
@@ -97,6 +127,7 @@ const ChatView = () => {
         
         if (data.success) {
            console.log("Uploaded successfully:", data.files);
+           setPendingFiles(prev => [...prev, ...data.files]);
         } else {
            console.error("Upload failed");
            alert("Upload failed.");
@@ -111,6 +142,10 @@ const ChatView = () => {
     }
   };
 
+  const removePendingFile = (fileName) => {
+    setPendingFiles(prev => prev.filter(f => f.name !== fileName));
+  };
+
   if (!chat) return <div className="chat-view-container"><p>Loading...</p></div>;
 
   return (
@@ -118,7 +153,22 @@ const ChatView = () => {
       <div className="chat-messages">
         {chat.messages.map(msg => (
           <div key={msg.id} className={`message ${msg.sender === 'user' ? 'user' : 'ai'}`}>
-            {msg.text}
+            <div className="message-content">
+              {msg.files && msg.files.length > 0 && (
+                <div className="message-files">
+                  {msg.files.map((file, idx) => (
+                    <div key={idx} className="file-chip">
+                      📎 {file.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {msg.isTyping && !msg.text ? (
+                <div className="pulse" style={{ opacity: 0.7, fontStyle: 'italic', fontSize: '0.9rem' }}>Twin ai is typing...</div>
+              ) : (
+                <ReactMarkdown>{msg.text || (msg.files?.length > 0 ? "" : "...")}</ReactMarkdown>
+              )}
+            </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
@@ -126,6 +176,16 @@ const ChatView = () => {
 
       <div className="chat-input-wrapper">
         <div className="chat-input-inner">
+          {pendingFiles.length > 0 && (
+            <div className="pending-files fade-in">
+              {pendingFiles.map((file, idx) => (
+                <div key={idx} className="pending-file-chip">
+                  <span>{file.name}</span>
+                  <button onClick={() => removePendingFile(file.name)} className="remove-file-btn">×</button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="study-input-container">
             <input 
               type="text" 
@@ -154,5 +214,6 @@ const ChatView = () => {
     </div>
   );
 };
+
 
 export default ChatView;

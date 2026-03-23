@@ -23,8 +23,8 @@ const ChatsList = () => {
           chats.map(chat => (
             <Link to={`/chat/${chat.id}`} key={chat.id} className="chat-list-item">
               <div>
-                <strong style={{ display: 'block', fontSize: '1.2rem', marginBottom: '8px' }}>
-                  Chat from {new Date(chat.createdAt).toLocaleDateString()}
+                <strong style={{ display: 'block', fontSize: '1.2rem', marginBottom: '8px', textTransform: 'capitalize' }}>
+                  {chat.title && chat.title !== "New Chat" ? chat.title : `Chat from ${new Date(chat.createdAt).toLocaleDateString()}`}
                 </strong>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {chat.messages && chat.messages.length > 0 

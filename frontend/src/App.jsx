@@ -25,6 +25,12 @@ const Navbar = () => {
   useEffect(() => {
     loadUser();
     
+    // Initial connection if token exists
+    if (localStorage.getItem('token')) {
+      socket.auth = { token: localStorage.getItem('token') };
+      socket.connect();
+    }
+
     const handleAuthChange = () => {
       loadUser();
       // Inform the socket of the new token and re-connect
@@ -38,6 +44,7 @@ const Navbar = () => {
     window.addEventListener("authChange", handleAuthChange);
     return () => window.removeEventListener("authChange", handleAuthChange);
   }, []);
+
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -90,6 +97,7 @@ const Navbar = () => {
 const Home = () => {
   const fileInputRef = React.useRef(null);
   const [inputValue, setInputValue] = useState('');
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState('');
   const navigate = useNavigate();
@@ -105,11 +113,31 @@ const Home = () => {
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      console.log('Files selected:', files);
-      alert(`Selected ${files.length} file(s): ` + Array.from(files).map(f => f.name).join(', '));
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append("files", file);
+      });
+
+      try {
+        const response = await fetch("http://localhost:3000/api/upload", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+        if (data.success) {
+           setPendingFiles(prev => [...prev, ...data.files]);
+        }
+      } catch (err) {
+        console.error("Error uploading files:", err);
+      }
+      fileInputRef.current.value = "";
     }
   };
 
@@ -119,8 +147,8 @@ const Home = () => {
       setAuthModalOpen(true);
       return;
     }
-    if (!inputValue.trim()) return;
-    socket.emit("create_chat", { initialMessage: inputValue }, (response) => {
+    if (!inputValue.trim() && pendingFiles.length === 0) return;
+    socket.emit("create_chat", { initialMessage: inputValue, files: pendingFiles }, (response) => {
       if (response && response.success) {
         navigate(`/chat/${response.chatId}`);
       }
@@ -133,10 +161,24 @@ const Home = () => {
     }
   };
 
+  const removePendingFile = (fileName) => {
+    setPendingFiles(prev => prev.filter(f => f.name !== fileName));
+  };
+
   return (
     <section className="hero">
       <h1 className="hero-title fade-in">Elevate Your Learning.</h1>
       <div className="action-box fade-in" style={{ animationDelay: '0.2s' }}>
+        {pendingFiles.length > 0 && (
+          <div className="pending-files" style={{ justifyContent: 'center', marginBottom: '15px' }}>
+            {pendingFiles.map((file, idx) => (
+              <div key={idx} className="pending-file-chip">
+                <span>{file.name}</span>
+                <button onClick={() => removePendingFile(file.name)} className="remove-file-btn">×</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="study-input-container">
           <input 
             type="text" 
@@ -160,6 +202,7 @@ const Home = () => {
           />
         </div>
       </div>
+
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} message={authModalMessage} />
     </section>
   );

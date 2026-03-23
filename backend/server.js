@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 const errorhandler = require("./middlewares/error");
 const router = require("./authentication/authenticate");
 const auth = require("./middlewares/auth");
+const { generateAIResponse, generateChatTitle } = require("./aiService");
 
 app.use(cors());
 app.use(express.json());
@@ -23,7 +24,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // allow frontend access
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"], // Allow local frontend origins
     methods: ["GET", "POST"]
   }
 });
@@ -49,44 +50,17 @@ const upload = multer({ storage: storage });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 app.post("/api/upload", auth, upload.array("files"), (req, res) => {
     try {
         const files = req.files.map(f => ({
             url: `http://localhost:3000/uploads/${f.filename}`,
             name: f.originalname,
             mimetype: f.mimetype,
-            size: f.size
+            size: f.size,
+            filename: f.filename
         }));
         
-        // Let's emit a socket message to a chat if chatId is provided
-        const { chatId } = req.body;
-        if (chatId && chats[chatId]) {
-            const msg = {
-                id: Date.now().toString() + "_file",
-                sender: "user",
-                text: "Uploaded file: " + files.map(f => f.name).join(", "),
-                files: files,
-                timestamp: new Date()
-            };
-            chats[chatId].messages.push(msg);
-            io.to(chatId).emit("receive_message", msg);
-
-            // Simulating AI response to file
-            setTimeout(() => {
-              if (chats[chatId]) {
-                  const aiMsg = {
-                      id: Date.now().toString() + "_ai",
-                      sender: "ai",
-                      text: "I received your file(s)",
-                      timestamp: new Date()
-                  };
-                  chats[chatId].messages.push(aiMsg);
-                  io.to(chatId).emit("receive_message", aiMsg);
-              }
-          }, 1000);
-        }
+        // Simply return the uploaded files metadata
         res.json({ success: true, files });
     } catch (error) {
         console.error("Upload error:", error);
@@ -96,54 +70,84 @@ app.post("/api/upload", auth, upload.array("files"), (req, res) => {
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
+  console.log("Handshake token received:", token);
   if (!token) {
+    console.log("No token provided in handshake");
     return next(new Error("Authentication error: No token provided"));
   }
   try {
     const decoded = jwt.verify(token, "secret");
+    console.log("Token verified for user ID:", decoded.id);
     socket.user = decoded;
     next();
   } catch (err) {
+    console.error("Token verification failed:", err.message);
     return next(new Error("Authentication error: Invalid token"));
   }
 });
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("User connected:", socket.id, "User ID:", socket.user?.id);
 
   socket.on("create_chat", (data, callback) => {
     const chatId = Date.now().toString();
+    console.log(`Creating chat ${chatId} for user ${socket.user?.id}`);
     chats[chatId] = {
       id: chatId,
+      title: "New Chat",
       messages: [],
       createdAt: new Date(),
     };
     
-    // Auto-join the newly created chat room
     socket.join(chatId);
 
-    if (data && data.initialMessage) {
+    if (data && (data.initialMessage || (data.files && data.files.length > 0))) {
         const msg = {
             id: Date.now().toString() + "_msg",
             sender: "user",
             text: data.initialMessage,
+            files: data.files || [],
             timestamp: new Date()
         };
         chats[chatId].messages.push(msg);
         
-        // Simulating an AI response
-        setTimeout(() => {
+        if (data.files && data.files.length > 0) {
+            chats[chatId].files = [...(chats[chatId].files || []), ...data.files];
+        }
+
+        generateChatTitle(data.initialMessage || (data.files && data.files[0].name) || "New Chat").then(title => {
+            if (chats[chatId]) {
+                chats[chatId].title = title;
+                io.to(chatId).emit("chat_updated", chats[chatId]);
+            }
+        });
+        
+        (async () => {
             if (chats[chatId]) {
                 const aiMsg = {
                     id: Date.now().toString() + "_ai",
                     sender: "ai",
-                    text: "I received your message: " + data.initialMessage,
+                    text: "",
+                    isTyping: true,
                     timestamp: new Date()
                 };
                 chats[chatId].messages.push(aiMsg);
                 io.to(chatId).emit("receive_message", aiMsg);
+
+                const history = chats[chatId].messages.slice(0, -2).slice(-10);
+                const result = await generateAIResponse(data.initialMessage, data.files || [], history, (chunk) => {
+                    aiMsg.text += chunk;
+                    aiMsg.isTyping = false;
+                    io.to(chatId).emit("receive_message_update", { id: aiMsg.id, text: aiMsg.text, isTyping: aiMsg.isTyping });
+                });
+
+                if (aiMsg.text === "" && typeof result === "string") {
+                    aiMsg.text = result;
+                    aiMsg.isTyping = false;
+                    io.to(chatId).emit("receive_message_update", { id: aiMsg.id, text: aiMsg.text, isTyping: aiMsg.isTyping });
+                }
             }
-        }, 1000);
+        })();
     }
     
     if (typeof callback === "function") {
@@ -152,53 +156,87 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join_chat", (chatId) => {
+    console.log(`Socket ${socket.id} (User: ${socket.user?.id}) joining chat ${chatId}`);
     socket.join(chatId);
-    console.log(`Socket ${socket.id} joined chat ${chatId}`);
   });
 
   socket.on("send_message", (data) => {
-    const { chatId, message } = data;
+    const { chatId, message, files } = data;
+    console.log(`Message from socket ${socket.id} to chat ${chatId}: ${message} (Files: ${files?.length || 0})`);
+    
     if (chats[chatId]) {
       const msg = {
         id: Date.now().toString() + "_msg",
         sender: "user",
         text: message,
+        files: files || [],
         timestamp: new Date()
       };
+      
+      if (files && files.length > 0) {
+        if (!chats[chatId].files) chats[chatId].files = [];
+        chats[chatId].files.push(...files);
+      }
+
+      if (chats[chatId].messages.length === 0 || (chats[chatId].messages.length === 1 && chats[chatId].title === "New Chat")) {
+          generateChatTitle(message || (files && files[0].name) || "New Chat").then(title => {
+              if (chats[chatId]) {
+                  chats[chatId].title = title;
+                  io.to(chatId).emit("chat_updated", chats[chatId]);
+              }
+          });
+      }
+      
       chats[chatId].messages.push(msg);
       io.to(chatId).emit("receive_message", msg);
 
-      // Simulating AI response
-      setTimeout(() => {
+      (async () => {
           if (chats[chatId]) {
               const aiMsg = {
                   id: Date.now().toString() + "_ai",
                   sender: "ai",
-                  text: "Echo: " + message,
+                  text: "",
+                  isTyping: true,
                   timestamp: new Date()
               };
               chats[chatId].messages.push(aiMsg);
               io.to(chatId).emit("receive_message", aiMsg);
+
+              const history = chats[chatId].messages.slice(0, -2).slice(-10);
+              const result = await generateAIResponse(message, files || [], history, (chunk) => {
+                  aiMsg.text += chunk;
+                  aiMsg.isTyping = false;
+                  io.to(chatId).emit("receive_message_update", { id: aiMsg.id, text: aiMsg.text, isTyping: aiMsg.isTyping });
+              });
+
+              if (aiMsg.text === "" && typeof result === "string") {
+                  aiMsg.text = result;
+                  aiMsg.isTyping = false;
+                  io.to(chatId).emit("receive_message_update", { id: aiMsg.id, text: aiMsg.text, isTyping: aiMsg.isTyping });
+              }
           }
-      }, 1000);
+      })();
+    } else {
+      console.warn(`Chat ${chatId} not found for message emission!`);
     }
   });
   
   socket.on("get_chats", (data, callback) => {
-      // Return all chats. In a real app, you would filter by userId.
+      console.log(`Socket ${socket.id} requesting chats list`);
       if (typeof callback === "function") {
           callback(Object.values(chats).sort((a,b) => b.createdAt - a.createdAt));
       }
   });
   
   socket.on("get_chat", (chatId, callback) => {
+      console.log(`Socket ${socket.id} requesting chat details for ${chatId}`);
       if (typeof callback === "function") {
           callback(chats[chatId] || null);
       }
   });
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+  socket.on("disconnect", (reason) => {
+    console.log("User disconnected:", socket.id, "Reason:", reason);
   });
 });
 
