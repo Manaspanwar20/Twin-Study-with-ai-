@@ -31,6 +31,10 @@ Convert YouTube videos into structured notes
 
 ⚡ WebSocket-based chat logic
 
+📄 AI-powered responses for:
+    General prompts
+    Document-based queries
+
 ## 🔄 In Progress
 
 Backend integration (authorization and middlewares)
