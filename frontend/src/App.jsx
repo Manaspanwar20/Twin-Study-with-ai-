@@ -24,8 +24,7 @@ const Navbar = () => {
 
   useEffect(() => {
     loadUser();
-    
-    // Initial connection if token exists
+
     if (localStorage.getItem('token')) {
       socket.auth = { token: localStorage.getItem('token') };
       socket.connect();
@@ -33,7 +32,6 @@ const Navbar = () => {
 
     const handleAuthChange = () => {
       loadUser();
-      // Inform the socket of the new token and re-connect
       socket.auth = { token: localStorage.getItem('token') };
       socket.disconnect();
       if (localStorage.getItem('token')) {
@@ -44,7 +42,6 @@ const Navbar = () => {
     window.addEventListener("authChange", handleAuthChange);
     return () => window.removeEventListener("authChange", handleAuthChange);
   }, []);
-
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -57,9 +54,7 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="logo-container">
-        <Link to="/" className="logo-pill">
-          Twin
-        </Link>
+        <Link to="/" className="logo-pill">Twin</Link>
       </div>
       <div className="nav-links">
         <Link to="/chats" className="nav-link">Chats</Link>
@@ -70,10 +65,7 @@ const Navbar = () => {
           </>
         ) : (
           <div className="profile-menu">
-            <button 
-              className="profile-logo" 
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-            >
+            <button className="profile-logo" onClick={() => setDropdownOpen(!dropdownOpen)}>
               {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
             </button>
             {dropdownOpen && (
@@ -95,70 +87,130 @@ const Navbar = () => {
 };
 
 const Home = () => {
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
+  const syllabusInputRef = useRef(null);
+  const plusMenuRef = useRef(null);
   const [inputValue, setInputValue] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState('');
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [syllabusUploading, setSyllabusUploading] = useState(false);
   const navigate = useNavigate();
 
-  const handleUploadClick = () => {
+  // Close plus menu on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target)) {
+        setPlusMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const requireAuth = (message, action) => {
     if (!localStorage.getItem('token')) {
-      setAuthModalMessage("Please login or register first to upload files.");
+      setAuthModalMessage(message);
       setAuthModalOpen(true);
-      return;
+      return false;
     }
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    return true;
+  };
+
+  const handleUploadClick = () => {
+    if (!requireAuth("Please login or register first to upload files.")) return;
+    setPlusMenuOpen(false);
+    fileInputRef.current && fileInputRef.current.click();
+  };
+
+  const handleSyllabusClick = () => {
+    if (!requireAuth("Please login or register first to upload your syllabus.")) return;
+    setPlusMenuOpen(false);
+    syllabusInputRef.current && syllabusInputRef.current.click();
   };
 
   const handleFileChange = async (e) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
-      const formData = new FormData();
-      Array.from(files).forEach(file => {
-        formData.append("files", file);
+    if (!files || files.length === 0) return;
+    const formData = new FormData();
+    Array.from(files).forEach(file => formData.append("files", file));
+    try {
+      const res = await fetch("http://localhost:3000/api/upload", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+        body: formData,
       });
+      const data = await res.json();
+      if (data.success) setPendingFiles(prev => [...prev, ...data.files]);
+    } catch (err) {
+      console.error("Error uploading files:", err);
+    }
+    fileInputRef.current.value = "";
+  };
+
+  const handleSyllabusFileChange = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // ── Capture the File object NOW, before any async boundary ──
+    // FileList is a live object; setting input.value="" below would clear it.
+    const syllabusFile = files[0];
+
+    // Clear input immediately so user can re-select the same file later
+    syllabusInputRef.current.value = "";
+
+    setSyllabusUploading(true);
+
+    // Step 1: Create a chat first
+    socket.emit("create_chat", {
+      initialMessage: "I've uploaded my syllabus. Please help me track and study each topic systematically.",
+      files: []
+    }, async (response) => {
+      if (!response || !response.success) {
+        setSyllabusUploading(false);
+        alert("Could not create chat. Are you logged in?");
+        return;
+      }
+      const chatId = response.chatId;
+
+      // Step 2: Upload the captured File object to that chat
+      const formData = new FormData();
+      formData.append("file", syllabusFile);   // ← stable File reference
+      formData.append("chatId", chatId);
 
       try {
-        const response = await fetch("http://localhost:3000/api/upload", {
+        const uploadRes = await fetch("http://localhost:3000/api/upload-syllabus", {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${localStorage.getItem("token")}`
-          },
+          headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
           body: formData,
         });
-
-        const data = await response.json();
-        if (data.success) {
-           setPendingFiles(prev => [...prev, ...data.files]);
+        const uploadData = await uploadRes.json();
+        if (uploadData.success && uploadData.syllabus) {
+          // Cache in sessionStorage — ChatView reads this on mount
+          sessionStorage.setItem(`syllabus_${chatId}`, JSON.stringify(uploadData.syllabus));
+        } else {
+          console.error("Syllabus parse failed:", uploadData.error);
         }
       } catch (err) {
-        console.error("Error uploading files:", err);
+        console.error("Syllabus upload error:", err);
       }
-      fileInputRef.current.value = "";
-    }
+
+      setSyllabusUploading(false);
+      navigate(`/chat/${chatId}`);
+    });
   };
 
   const handleSubmit = () => {
-    if (!localStorage.getItem('token')) {
-      setAuthModalMessage("Please login or register first to chat with AI.");
-      setAuthModalOpen(true);
-      return;
-    }
+    if (!requireAuth("Please login or register first to chat with AI.")) return;
     if (!inputValue.trim() && pendingFiles.length === 0) return;
     socket.emit("create_chat", { initialMessage: inputValue, files: pendingFiles }, (response) => {
-      if (response && response.success) {
-        navigate(`/chat/${response.chatId}`);
-      }
+      if (response && response.success) navigate(`/chat/${response.chatId}`);
     });
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleSubmit();
-    }
+    if (e.key === 'Enter') handleSubmit();
   };
 
   const removePendingFile = (fileName) => {
@@ -169,6 +221,7 @@ const Home = () => {
     <section className="hero">
       <h1 className="hero-title fade-in">Elevate Your Learning.</h1>
       <div className="action-box fade-in" style={{ animationDelay: '0.2s' }}>
+
         {pendingFiles.length > 0 && (
           <div className="pending-files" style={{ justifyContent: 'center', marginBottom: '15px' }}>
             {pendingFiles.map((file, idx) => (
@@ -179,27 +232,57 @@ const Home = () => {
             ))}
           </div>
         )}
+
+        {syllabusUploading && (
+          <div className="syllabus-upload-banner fade-in">
+            <div className="syllabus-banner-spinner" />
+            <span>Analysing your syllabus with AI…</span>
+          </div>
+        )}
+
         <div className="study-input-container">
-          <input 
-            type="text" 
-            className="study-input" 
+          <input
+            type="text"
+            className="study-input"
             placeholder="Study with ai"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
           />
-          <button className="submit-arrow-button" onClick={handleSubmit} title="Send Message">
-            ➔
-          </button>
-          <button className="plus-button" onClick={handleUploadClick} title="Upload files">+</button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            style={{ display: 'none' }} 
-            multiple
-          />
+          <button className="submit-arrow-button" onClick={handleSubmit} title="Send Message">➔</button>
+
+          {/* ── Plus dropdown ── */}
+          <div className="plus-menu-wrapper" ref={plusMenuRef}>
+            <button
+              className={`plus-button ${plusMenuOpen ? 'open' : ''}`}
+              onClick={() => setPlusMenuOpen(o => !o)}
+              title="Attach"
+            >+</button>
+
+            {plusMenuOpen && (
+              <div className="plus-dropdown fade-in">
+                <button className="plus-dropdown-item" onClick={handleUploadClick}>
+                  <span className="plus-dropdown-icon">📎</span>
+                  <div>
+                    <div className="plus-dropdown-label">Upload File</div>
+                    <div className="plus-dropdown-desc">PDF, image, or text</div>
+                  </div>
+                </button>
+                <div className="plus-dropdown-divider" />
+                <button className="plus-dropdown-item syllabus-option" onClick={handleSyllabusClick}>
+                  <span className="plus-dropdown-icon">📚</span>
+                  <div>
+                    <div className="plus-dropdown-label">Upload Syllabus</div>
+                    <div className="plus-dropdown-desc">AI tracks your topics</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} multiple />
+          <input type="file" ref={syllabusInputRef} onChange={handleSyllabusFileChange} style={{ display: 'none' }} accept=".pdf,.txt,.doc,.docx,image/*" />
         </div>
       </div>
 
