@@ -10,7 +10,7 @@ const jwt = require("jsonwebtoken");
 const errorhandler = require("./middlewares/error");
 const router = require("./authentication/authenticate");
 const auth = require("./middlewares/auth");
-const { generateAIResponse, generateChatTitle, parseSyllabus } = require("./aiService");
+const { generateAIResponse, generateChatTitle, parseSyllabus, generateQuiz } = require("./aiService");
 
 app.use(cors());
 app.use(express.json());
@@ -30,7 +30,24 @@ const io = new Server(server, {
 });
 
 // A simple in-memory store for chats
-const chats = {};
+let chats = {};
+try {
+  if (fs.existsSync(path.join(__dirname, 'chats.json'))) {
+    const data = fs.readFileSync(path.join(__dirname, 'chats.json'), 'utf8');
+    chats = JSON.parse(data);
+    console.log("Loaded existing chats from disk.");
+  }
+} catch (err) {
+  console.error("Error loading chats from disk:", err);
+}
+
+function saveToDisk() {
+  try {
+    fs.writeFileSync(path.join(__dirname, 'chats.json'), JSON.stringify(chats, null, 2));
+  } catch (err) {
+    console.error("Error saving chats to disk:", err);
+  }
+}
 
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -92,6 +109,7 @@ app.post("/api/upload-syllabus", auth, syllabusUpload.single("file"), async (req
     const chatId = req.body && req.body.chatId;
     if (chatId && chats[chatId]) {
       chats[chatId].syllabus = syllabus;
+      saveToDisk(); // Update file
     }
 
     res.json({ success: true, syllabus });
@@ -143,6 +161,7 @@ io.on("connection", (socket) => {
         timestamp: new Date()
       };
       chats[chatId].messages.push(msg);
+      saveToDisk();
 
       if (data.files && data.files.length > 0) {
         chats[chatId].files = [...(chats[chatId].files || []), ...data.files];
@@ -256,10 +275,53 @@ io.on("connection", (socket) => {
   });
 
   socket.on("update_syllabus", (data) => {
-    const { chatId, syllabus } = data;
-    if (chats[chatId]) {
-      chats[chatId].syllabus = syllabus;
-    }
+      const { chatId, syllabus } = data;
+      if (chats[chatId]) {
+          chats[chatId].syllabus = syllabus;
+          saveToDisk();
+      }
+  });
+
+  socket.on("generate_quiz", async ({ chatId, subject, topic }) => {
+      if (!chats[chatId]) return;
+
+      const aiMsg = {
+          id: Date.now().toString() + "_quiz",
+          sender: "ai",
+          type: "quiz",
+          text: `Generating a quiz for topic: ${topic}...`,
+          isTyping: true,
+          timestamp: new Date()
+      };
+      chats[chatId].messages.push(aiMsg);
+      io.to(chatId).emit("receive_message", aiMsg);
+
+      try {
+          const quiz = await generateQuiz(subject, topic);
+          if (quiz) {
+              aiMsg.quiz = quiz;
+              aiMsg.text = `Here's a 3-question quiz on **${topic}**. Good luck!`;
+          } else {
+              aiMsg.text = "I failed to generate a quiz for this topic. Please try again later.";
+          }
+          aiMsg.isTyping = false;
+          io.to(chatId).emit("receive_message_update", aiMsg);
+          saveToDisk();
+      } catch (err) {
+          console.error("Quiz gen error:", err);
+          aiMsg.text = "Error generating quiz. Please try again.";
+          aiMsg.isTyping = false;
+          io.to(chatId).emit("receive_message_update", aiMsg);
+      }
+  });
+
+  socket.on("update_message", ({ chatId, messageId, updates }) => {
+      if (!chats[chatId]) return;
+      const msgIndex = chats[chatId].messages.findIndex(m => m.id === messageId);
+      if (msgIndex !== -1) {
+          chats[chatId].messages[msgIndex] = { ...chats[chatId].messages[msgIndex], ...updates };
+          saveToDisk();
+      }
   });
 
   socket.on("get_chats", (data, callback) => {

@@ -211,8 +211,41 @@ Rules:
     }
 }
 
+async function generateQuiz(subject, topic) {
+    try {
+        const quizModel = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
+        });
+
+        const prompt = `You are an expert examiner. Generate a 3-question Multiple Choice Quiz (MCQ) for the subject "${subject}" specifically on the topic "${topic}".
+        Rules:
+        - Output MUST be valid JSON.
+        - Structure: {"subject": "...", "topic": "...", "questions": [{"id": 1, "question": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "explanation": "..."}]}
+        - Each question must have exactly 4 plausible options.
+        - correctIndex is 0-indexed (0 to 3).
+        - explanation should be 1-2 sentences explaining why the correct answer is right.
+        - Make questions challenging but fair for a student studying this topic.`;
+
+        const result = await quizModel.generateContent(prompt);
+        const raw = result.response.text().trim();
+        
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed;
+        } catch (err) {
+            console.error("Quiz JSON Parse Error:", raw);
+            return null;
+        }
+    } catch (e) {
+        console.error("Quiz generation error:", e);
+        return null;
+    }
+}
+
 module.exports = {
     generateAIResponse,
     generateChatTitle,
-    parseSyllabus
+    parseSyllabus,
+    generateQuiz
 };

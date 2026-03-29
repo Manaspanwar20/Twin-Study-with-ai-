@@ -4,6 +4,7 @@ import socket from '../socket';
 import AuthModal from './AuthModal';
 import ReactMarkdown from 'react-markdown';
 import SyllabusTracker from './SyllabusTracker';
+import QuizCard from './QuizCard';
 
 const ChatView = () => {
   const { id } = useParams();
@@ -37,6 +38,12 @@ const ChatView = () => {
   }, []);
 
   useEffect(() => {
+    // 1. Reset states when ID changes to ensure clean load
+    setChat(null);
+    setSyllabus(null);
+    setShowSyllabus(false);
+    setPendingFiles([]);
+
     const handleConnect = () => {
       console.log('Socket reconnected, joining chat:', id);
       socket.emit("join_chat", id);
@@ -45,26 +52,28 @@ const ChatView = () => {
     socket.emit("get_chat", id, (response) => {
       if (response) {
         setChat(response);
-        // 1. Restore from in-memory server chat if persisted
+        // 2. Priority 1: Restore from server-side stored syllabus
         if (response.syllabus) {
+          console.log("Restoring syllabus from server for chat:", id);
           setSyllabus(response.syllabus);
           setShowSyllabus(true);
         } else {
-          // 2. Check sessionStorage — set by Home page syllabus upload flow
+          // 3. Priority 2: Fallback to session cache (useful right after upload)
           const cached = sessionStorage.getItem(`syllabus_${id}`);
           if (cached) {
             try {
-              setSyllabus(JSON.parse(cached));
+              const parsed = JSON.parse(cached);
+              console.log("Restoring syllabus from cache for chat:", id);
+              setSyllabus(parsed);
               setShowSyllabus(true);
-              sessionStorage.removeItem(`syllabus_${id}`);
+              // don't remove immediately in case of refresh
             } catch (e) {
-              console.error('Failed to parse cached syllabus', e);
+              console.error("Cache parse error:", e);
             }
           }
         }
       }
     });
-
     socket.emit("join_chat", id);
     socket.on('connect', handleConnect);
 
@@ -294,6 +303,19 @@ const ChatView = () => {
     }
   };
 
+  const handleTakeQuiz = (topicName) => {
+    if (!localStorage.getItem('token')) {
+      setAuthModalMessage("Please login or register to take quizzes.");
+      setAuthModalOpen(true);
+      return;
+    }
+    socket.emit("generate_quiz", {
+      chatId: id,
+      subject: syllabus?.subject || "Subject",
+      topic: topicName
+    });
+  };
+
   const removePendingFile = (fileName) => {
     setPendingFiles(prev => prev.filter(f => f.name !== fileName));
   };
@@ -325,6 +347,26 @@ const ChatView = () => {
                 )}
                 {msg.isTyping && !msg.text ? (
                   <div className="pulse" style={{ opacity: 0.7, fontStyle: 'italic', fontSize: '0.9rem' }}>Twin ai is typing...</div>
+                ) : msg.type === 'quiz' && msg.quiz ? (
+                  <QuizCard 
+                    quizData={msg.quiz} 
+                    initialSession={msg.quizSession}
+                    onSessionUpdate={(updates) => {
+                      socket.emit("update_message", { 
+                        chatId: id, 
+                        messageId: msg.id, 
+                        updates: { quizSession: updates } 
+                      });
+                      // Also update local state to keep it in sync
+                      setChat(prev => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          messages: prev.messages.map(m => m.id === msg.id ? { ...m, quizSession: updates } : m)
+                        };
+                      });
+                    }}
+                  />
                 ) : (
                   <ReactMarkdown>{msg.text || (msg.files?.length > 0 ? "" : "...")}</ReactMarkdown>
                 )}
@@ -399,6 +441,7 @@ const ChatView = () => {
           syllabus={syllabus}
           isLoading={syllabusLoading}
           onToggleTopic={handleToggleTopic}
+          onTakeQuiz={handleTakeQuiz}
           onClose={() => setShowSyllabus(false)}
         />
       )}

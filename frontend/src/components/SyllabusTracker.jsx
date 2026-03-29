@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const SyllabusTracker = ({ syllabus, onToggleTopic, onClose, isLoading }) => {
+const SyllabusTracker = ({ syllabus, onToggleTopic, onTakeQuiz, onClose, isLoading }) => {
   const [expandedUnits, setExpandedUnits] = useState({});
 
   if (!syllabus && !isLoading) return null;
@@ -61,18 +61,27 @@ const SyllabusTracker = ({ syllabus, onToggleTopic, onClose, isLoading }) => {
               </button>
               {isOpen && (
                 <div className="syllabus-topics">
-                  {unit.topics.map((topic, ti) => (
-                    <label key={ti} className={`syllabus-topic ${topic.done ? 'done' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={topic.done}
-                        onChange={() => onToggleTopic(ui, ti)}
-                        className="syllabus-checkbox"
-                      />
-                      <span className="syllabus-topic-name">{topic.name}</span>
-                      {topic.done && <span className="syllabus-done-badge">✓</span>}
-                    </label>
-                  ))}
+                    {unit.topics.map((topic, ti) => (
+                      <div key={ti} className={`syllabus-topic ${topic.done ? 'done' : ''}`}>
+                        <div className="syllabus-topic-left">
+                          <input
+                            type="checkbox"
+                            checked={topic.done}
+                            onChange={() => onToggleTopic(ui, ti)}
+                            className="syllabus-checkbox"
+                          />
+                          <span className="syllabus-topic-name">{topic.name}</span>
+                          {topic.done && <span className="syllabus-done-badge">✓</span>}
+                        </div>
+                        <button 
+                          className="syllabus-quiz-btn" 
+                          onClick={(e) => { e.stopPropagation(); onTakeQuiz(topic.name); }}
+                          title="Take AI Quiz"
+                        >
+                          🧠
+                        </button>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
