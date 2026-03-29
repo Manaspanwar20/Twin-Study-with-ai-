@@ -35,7 +35,10 @@ Convert YouTube videos into structured notes
 
     General prompts
     Document-based queries
-    Syllabus Tracker
+
+🔘 Syllabus tracker 
+
+🧠 Quiz generator 
 
 ## 🔄 In Progress
 
