@@ -4,9 +4,9 @@ const path = require("path");
 const pdf = require("pdf-parse");
 require("dotenv").config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY, { apiVersion: "v1" });
 
-// Define working models (using Flash for maximum reliability across regions)
+// Define working models
 const CHAT_MODEL = "gemini-1.5-flash";
 const FLASH_MODEL = "gemini-1.5-flash";
 
