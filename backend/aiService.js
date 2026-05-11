@@ -5,8 +5,13 @@ const pdf = require("pdf-parse");
 require("dotenv").config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Define working models
+const CHAT_MODEL = "gemini-1.5-pro";
+const FLASH_MODEL = "gemini-1.5-flash";
+
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash", // Corrected model name
+    model: CHAT_MODEL,
     systemInstruction: "You are a highly capable and intelligent study assistant. Your goal is to provide accurate, detailed, and clear explanations based on the context provided. When a user refers to an uploaded document, analyze it thoroughly to give the most precise answer possible. If you need more information, ask follow-up questions but try to be as helpful and insightful as you can with the given materials."
 });
 
@@ -143,7 +148,7 @@ async function generateAIResponse(message, files = [], history = [], syllabus = 
  */
 async function generateChatTitle(message) {
     try {
-        const titleModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const titleModel = genAI.getGenerativeModel({ model: FLASH_MODEL });
         const prompt = `Generate a concise, descriptive title (max 4 words) for a chat that starts with: "${message}". Respond ONLY with the title text.`;
         const result = await titleModel.generateContent(prompt);
         return result.response.text().trim().replace(/[*"']/g, '');
@@ -157,9 +162,9 @@ async function generateChatTitle(message) {
  */
 async function parseSyllabus(file) {
     try {
-        console.log("[parseSyllabus] Using model: gemini-2.5-flash");
+        console.log(`[parseSyllabus] Using model: ${CHAT_MODEL}`);
         const promptModel = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: CHAT_MODEL,
             generationConfig: { responseMimeType: "application/json" }
         });
 
@@ -214,7 +219,7 @@ Rules:
 async function generateQuiz(subject, topic) {
     try {
         const quizModel = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: CHAT_MODEL,
             generationConfig: { responseMimeType: "application/json" }
         });
 
