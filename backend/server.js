@@ -22,12 +22,18 @@ app.use(errorhandler);
 
 const server = http.createServer(app);
 
+const allowedOrigins = ["https://twin-study-with-ai.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173"];
+
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"], // Allow local frontend origins
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
+
+app.use(cors({
+  origin: allowedOrigins
+}));
 
 // A simple in-memory store for chats
 let chats = {};
@@ -69,8 +75,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.post("/api/upload", auth, upload.array("files"), (req, res) => {
   try {
+    const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3000";
     const files = req.files.map(f => ({
-      url: `http://localhost:3000/uploads/${f.filename}`,
+      url: `${BACKEND_URL}/uploads/${f.filename}`,
       name: f.originalname,
       mimetype: f.mimetype,
       size: f.size,
@@ -343,6 +350,7 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log("Server is running on port 3000");
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

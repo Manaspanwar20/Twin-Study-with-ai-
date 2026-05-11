@@ -229,7 +229,7 @@ async function generateQuiz(subject, topic) {
 
         const result = await quizModel.generateContent(prompt);
         const raw = result.response.text().trim();
-        
+
         try {
             const parsed = JSON.parse(raw);
             return parsed;

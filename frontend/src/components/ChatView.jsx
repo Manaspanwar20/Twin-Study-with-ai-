@@ -6,6 +6,8 @@ import ReactMarkdown from 'react-markdown';
 import SyllabusTracker from './SyllabusTracker';
 import QuizCard from './QuizCard';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
 const ChatView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -203,7 +205,7 @@ const ChatView = () => {
       formData.append("chatId", id);
 
       try {
-        const response = await fetch("http://localhost:3000/api/upload", {
+        const response = await fetch(`${BACKEND_URL}/api/upload`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
           body: formData,
@@ -235,7 +237,7 @@ const ChatView = () => {
     formData.append("chatId", id);
 
     try {
-      const response = await fetch("http://localhost:3000/api/upload-syllabus", {
+      const response = await fetch(`${BACKEND_URL}/api/upload-syllabus`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
         body: formData,

@@ -8,6 +8,8 @@ import AuthModal from './components/AuthModal';
 import socket from './socket';
 import './App.css';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
 const Navbar = () => {
   const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -136,7 +138,7 @@ const Home = () => {
     const formData = new FormData();
     Array.from(files).forEach(file => formData.append("files", file));
     try {
-      const res = await fetch("http://localhost:3000/api/upload", {
+      const res = await fetch(`${BACKEND_URL}/api/upload`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
         body: formData,
@@ -180,7 +182,7 @@ const Home = () => {
       formData.append("chatId", chatId);
 
       try {
-        const uploadRes = await fetch("http://localhost:3000/api/upload-syllabus", {
+        const uploadRes = await fetch(`${BACKEND_URL}/api/upload-syllabus`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
           body: formData,

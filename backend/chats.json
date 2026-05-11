@@ -237,5 +237,82 @@
         }
       ]
     }
+  },
+  "1778506802745": {
+    "id": "1778506802745",
+    "title": "New Chat",
+    "messages": [
+      {
+        "id": "1778506802745_msg",
+        "sender": "user",
+        "text": "hi",
+        "files": [],
+        "timestamp": "2026-05-11T13:40:02.745Z"
+      },
+      {
+        "id": "1778506802782_ai",
+        "sender": "ai",
+        "text": "Hello! I'm here to help you study. What can I do for you today? Do you have any questions about a specific topic, or would you like to review something?",
+        "isTyping": false,
+        "timestamp": "2026-05-11T13:40:02.782Z"
+      },
+      {
+        "id": "1778506944917_msg",
+        "sender": "user",
+        "text": "explain inheritance",
+        "files": [],
+        "timestamp": "2026-05-11T13:42:24.917Z"
+      },
+      {
+        "id": "1778506944917_ai",
+        "sender": "ai",
+        "text": "Inheritance is a fundamental concept in **Object-Oriented Programming (OOP)** that allows a new class to **reuse, extend, and modify** the properties and behaviors (attributes and methods) of an existing class.\n\nThink of it like a family tree:\n\n*   The **parent class** (also known as the **base class** or **superclass**) is like the parent in a family.\n*   The **child class** (also known as the **derived class** or **subclass**) is like the child.\n\nThe child class inherits characteristics (attributes) and abilities (methods) from its parent class. This establishes an \"is-a\" relationship (e.g., a \"Dog *is an* Animal\").\n\n### Key Concepts:\n\n1.  **Parent Class (Superclass / Base Class):** The class whose properties and methods are inherited.\n2.  **Child Class (Subclass / Derived Class):** The class that inherits from the parent class. It can also add its own unique properties and methods, or override inherited ones.\n3.  **\"Is-a\" Relationship:** This is a crucial aspect. If Class B inherits from Class A, then B \"is a\" type of A. For example, a `Car` \"is a\" `Vehicle`.\n\n### Why is Inheritance Used? (Benefits)\n\n*   **Code Reusability:** You don't have to write the same code multiple times. Common functionality can be defined once in the parent class and reused by all child classes.\n*   **Reduced Redundancy:** Avoids duplicating code, making your program smaller and easier to manage.\n*   **Improved Maintainability:** If you need to change a shared piece of functionality, you only need to change it in the parent class, and all child classes will automatically reflect that change.\n*   **Extensibility:** Child classes can add new features or specialize existing ones without affecting the parent class or other child classes.\n*   **Hierarchical Classification:** Helps organize classes into a logical structure, making the codebase more understandable.\n*   **Polymorphism (closely related):** Inheritance is a prerequisite for polymorphism, allowing objects of different classes to be treated as objects of a common base class.\n\n### How it Works (Conceptual Example)\n\nLet's imagine we're building a system for different types of vehicles.\n\n```\n// Parent Class (Superclass)\nclass Vehicle {\n    String brand;\n    int year;\n\n    void startEngine() {\n        System.out.println(\"Engine started.\");\n    }\n\n    void stopEngine() {\n        System.out.println(\"Engine stopped.\");\n    }\n\n    void honk() {\n        System.out.println(\"Beep beep!\");\n    }\n}\n\n// Child Class (Subclass)\n// 'Car' inherits from 'Vehicle'\nclass Car extends Vehicle { // 'extends' is common keyword in Java, C#\n    int numberOfDoors;\n\n    void drive() {\n        System.out.println(\"Car is driving.\");\n    }\n}\n\n// Another Child Class (Subclass)\n// 'Motorcycle' also inherits from 'Vehicle'\nclass Motorcycle extends Vehicle {\n    boolean hasSidecar;\n\n    void wheelie() {\n        System.out.println(\"Motorcycle is doing a wheelie!\");\n    }\n}\n\n// Main program to use these classes\npublic class Main {\n    public static void main(String[] args) {\n        Car myCar = new Car();\n        myCar.brand = \"Toyota\"; // Inherited from Vehicle\n        myCar.year = 2023;       // Inherited from Vehicle\n        myCar.numberOfDoors = 4; // Specific to Car\n\n        myCar.startEngine();     // Inherited from Vehicle\n        myCar.drive();           // Specific to Car\n        myCar.honk();            // Inherited from Vehicle\n        myCar.stopEngine();      // Inherited from Vehicle\n\n        System.out.println(\"---\");\n\n        Motorcycle myBike = new Motorcycle();\n        myBike.brand = \"Harley\"; // Inherited from Vehicle\n        myBike.year = 2022;      // Inherited from Vehicle\n        myBike.hasSidecar = false; // Specific to Motorcycle\n\n        myBike.startEngine();    // Inherited from Vehicle\n        myBike.wheelie();        // Specific to Motorcycle\n        myBike.honk();           // Inherited from Vehicle\n        myBike.stopEngine();     // Inherited from Vehicle\n    }\n}\n```\n\n**Output of the example:**\n```\nEngine started.\nCar is driving.\nBeep beep!\nEngine stopped.\n---\nEngine started.\nMotorcycle is doing a wheelie!\nBeep beep!\nEngine stopped.\n```\n\nIn this example:\n\n*   Both `Car` and `Motorcycle` automatically get the `brand`, `year` attributes, and `startEngine()`, `stopEngine()`, `honk()` methods from the `Vehicle` class, even though we didn't write them explicitly in `Car` or `Motorcycle`.\n*   `Car` adds its own unique `numberOfDoors` attribute and `drive()` method.\n*   `Motorcycle` adds its own unique `hasSidecar` attribute and `wheelie()` method.\n\nThis demonstrates how inheritance allows `Car` and `Motorcycle` to share common vehicle characteristics while also having their own distinct features.",
+        "isTyping": false,
+        "timestamp": "2026-05-11T13:42:24.917Z"
+      }
+    ],
+    "createdAt": "2026-05-11T13:40:02.745Z",
+    "syllabus": {
+      "subject": "Java Virtual Machine",
+      "units": [
+        {
+          "name": "Unit 1",
+          "topics": [
+            {
+              "name": "Overview and characteristics of Java",
+              "done": false
+            },
+            {
+              "name": "Java program compilation, execution, JVM organization",
+              "done": false
+            },
+            {
+              "name": "JVM as an interpreter and emulator",
+              "done": false
+            },
+            {
+              "name": "Instruction Set",
+              "done": false
+            },
+            {
+              "name": "Class file format, verification, JVM memory model",
+              "done": false
+            },
+            {
+              "name": "Security Promises of the JVM",
+              "done": false
+            },
+            {
+              "name": "Security Architecture and Security Policy",
+              "done": false
+            },
+            {
+              "name": "Class loaders, security aspects, sandbox model",
+              "done": false
+            }
+          ]
+        }
+      ]
+    }
   }
 }
