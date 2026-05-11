@@ -6,8 +6,8 @@ require("dotenv").config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Define working models
-const CHAT_MODEL = "gemini-1.5-pro";
+// Define working models (using Flash for maximum reliability across regions)
+const CHAT_MODEL = "gemini-1.5-flash";
 const FLASH_MODEL = "gemini-1.5-flash";
 
 const model = genAI.getGenerativeModel({
