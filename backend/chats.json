@@ -314,5 +314,93 @@
         }
       ]
     }
+  },
+  "1778773923636": {
+    "id": "1778773923636",
+    "title": "New Chat",
+    "messages": [
+      {
+        "id": "1778773923636_msg",
+        "sender": "user",
+        "text": "hi",
+        "files": [],
+        "timestamp": "2026-05-14T15:52:03.636Z"
+      },
+      {
+        "id": "1778773923662_ai",
+        "sender": "ai",
+        "text": "Hello! I'm ready to help you with your studies. Do you have a question or a document you'd like to discuss? Feel free to tell me what you're working on!",
+        "isTyping": false,
+        "timestamp": "2026-05-14T15:52:03.662Z"
+      }
+    ],
+    "createdAt": "2026-05-14T15:52:03.636Z"
+  },
+  "1778773923740": {
+    "id": "1778773923740",
+    "title": "Just Saying Hi",
+    "messages": [
+      {
+        "id": "1778773923740_msg",
+        "sender": "user",
+        "text": "hi",
+        "files": [],
+        "timestamp": "2026-05-14T15:52:03.740Z"
+      },
+      {
+        "id": "1778773923741_ai",
+        "sender": "ai",
+        "text": "Hello! I'm here to help you understand your study materials. Please feel free to upload any documents you'd like to discuss or ask any questions you have.",
+        "isTyping": false,
+        "timestamp": "2026-05-14T15:52:03.741Z"
+      }
+    ],
+    "createdAt": "2026-05-14T15:52:03.740Z",
+    "syllabus": {
+      "subject": "Java Virtual Machine (JVM)",
+      "units": [
+        {
+          "name": "Unit 1",
+          "topics": [
+            {
+              "name": "Overview and characteristics of Java",
+              "done": false
+            },
+            {
+              "name": "Java program compilation, execution, and JVM organization",
+              "done": false
+            },
+            {
+              "name": "JVM as an interpreter and emulator",
+              "done": false
+            },
+            {
+              "name": "Instruction Set",
+              "done": false
+            },
+            {
+              "name": "Class file format, verification, memory areas",
+              "done": false
+            },
+            {
+              "name": "Java Stack, Heap, and Garbage Collection",
+              "done": false
+            },
+            {
+              "name": "Security Promises of the JVM",
+              "done": false
+            },
+            {
+              "name": "Security Architecture and Security Policy",
+              "done": false
+            },
+            {
+              "name": "Class loaders, security aspects, sandbox model",
+              "done": false
+            }
+          ]
+        }
+      ]
+    }
   }
 }
